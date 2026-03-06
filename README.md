@@ -2,7 +2,7 @@
 
 > A beautiful, real-time personal dashboard for your [OpenClaw](https://github.com/openclaw/openclaw) AI agent.
 
-![Dashboard Preview](preview.png)
+![Dashboard Preview](preview.jpg)
 
 ---
 
@@ -19,12 +19,6 @@ If you use [OpenClaw](https://github.com/openclaw/openclaw) to run a personal AI
 It reads directly from your OpenClaw workspace — no database, no cloud, no setup beyond `pip install flask`.
 
 ---
-
-## Preview
-
-| Activity Feed | Skills | Plan |
-|---|---|---|
-| _(screenshot)_ | _(screenshot)_ | _(screenshot)_ |
 
 ---
 
