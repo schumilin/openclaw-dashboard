@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Yi · Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+          colors: {
+            brand: {
+              DEFAULT: '#22C55E',
+              dark:    '#16A34A',
+              deeper:  '#166534',
+              light:   '#86EFAC',
+              lighter: '#DCFCE7',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    [x-cloak] { display: none !important; }
+    body { font-family: 'Inter', sans-serif; }
+
+    /* ── 放射波动画（小绿点 + 波纹）── */
+    @keyframes ripple {
+      0%   { transform: scale(1); opacity: 0.5; }
+      100% { transform: scale(3); opacity: 0; }
+    }
+    .online-dot-wrap {
+      position: absolute;
+      bottom: 4px;
+      right: 4px;
+      width: 16px;
+      height: 16px;
+      z-index: 20;
+    }
+    .online-dot-core {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: #22C55E;
+      border: 2px solid white;
+      z-index: 2;
+    }
+    .online-dot-ring {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: #22C55E;
+      animation: ripple 2s ease-out infinite;
+    }
+    .online-dot-ring:nth-child(2) { animation-delay: 0.8s; }
+
+    /* ── 圆弧文字 ── */
+    .arc-text {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      top: 0; left: 0;
+    }
+
+    /* ── Activity 虚线时间轴 ── */
+    .timeline-line {
+      position: absolute;
+      left: 7px;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      border-left: 1.5px dashed #E5E7EB;
+    }
+  </style>
+</head>
+<body class="bg-white min-h-screen" x-data="dashboard()" x-init="init()">
+
+  <div class="max-w-5xl mx-auto px-8 py-10 min-w-[900px]">
+
+    <!-- Loading -->
+    <div x-show="loading" class="flex items-center justify-center h-64">
+      <div class="text-gray-400 text-sm">Loading…</div>
+    </div>
+
+    <div x-show="!loading" x-cloak class="flex gap-7">
+
+      <!-- ═══ LEFT PANEL ═══ -->
+      <!-- 宽420px，圆角15px，从上到下 rgb(249,249,249)→white 线性渐变 -->
+      <div class="w-[420px] shrink-0 rounded-[15px] px-7 py-7"
+           style="background: linear-gradient(to bottom, rgb(249,249,249), rgb(255,255,255));">
+
+        <!-- 1. 头像（上方居中），名字在下 -->
+        <div class="flex flex-col items-start mb-6">
+          <!-- 头像 + 放射波 -->
+          <div class="relative w-[88px] h-[88px] mb-4">
+            <!-- 头像图片 -->
+            <img src="/avatar.jpg" alt="Yi"
+                 class="w-full h-full rounded-full object-cover border-2 border-gray-200" />
+            <!-- 右下角小绿点 + 放射波 -->
+            <div class="online-dot-wrap">
+              <div class="online-dot-ring"></div>
+              <div class="online-dot-ring"></div>
+              <div class="online-dot-core"></div>
+            </div>
+          </div>
+          <!-- 名字，无副标题 -->
+          <h1 class="text-2xl font-bold text-gray-900 leading-tight" x-text="data.profile?.name ?? 'Yi'"></h1>
+        </div>
+
+        <!-- 2. Stats Row -->
+        <div class="flex gap-8 mb-6 pb-5 border-b border-gray-100">
+          <div>
+            <p class="text-xs text-gray-400 mb-0.5">Cost</p>
+            <p class="text-2xl font-bold text-gray-900 tabular-nums" x-text="data.stats?.cost_today ?? '$0.00'"></p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-400 mb-0.5">My Skills</p>
+            <p class="text-2xl font-bold text-gray-900" x-text="data.skill_count ?? (data.skills?.length ?? 0)"></p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-400 mb-0.5">Last Active</p>
+            <p class="text-2xl font-bold text-gray-900">just now</p>
+          </div>
+        </div>
+
+        <!-- 3. About me -->
+        <div class="mb-6">
+          <p class="text-sm text-gray-400 mb-2">About me</p>
+          <p class="text-sm text-gray-700 leading-relaxed" x-text="data.profile?.about ?? ''"></p>
+        </div>
+
+        <!-- 4. GitHub 风格热力图：20 周 × 7 天 -->
+        <div class="mb-6">
+          <div class="flex items-center justify-between mb-2">
+            <p class="text-xs text-gray-400 uppercase tracking-widest font-medium">Activity</p>
+            <p class="text-[10px] text-gray-300">past 24 weeks</p>
+          </div>
+          <!-- 行标签 + 网格 -->
+          <div class="flex gap-1">
+            <!-- 左侧星期标签 -->
+            <div class="flex flex-col gap-px mr-1" style="padding-top:0px;">
+              <template x-for="label in ['M','T','W','T','F','S','S']" :key="label + Math.random()">
+                <div class="text-[8px] text-gray-300 leading-none flex items-center" style="height:12px;margin-bottom:2px;" x-text="label"></div>
+              </template>
+            </div>
+            <!-- 20 列（每列一周） -->
+            <div class="flex gap-[3px]">
+              <template x-for="(week, wi) in (data.profile?.heatmap_weeks ?? [])" :key="wi">
+                <div class="flex flex-col gap-[3px]">
+                  <template x-for="(cell, di) in week" :key="di">
+                    <div class="rounded-[2px] transition-colors"
+                         style="width:12px;height:12px;"
+                         :class="cell.future ? 'bg-transparent' : heatColor(cell.level)"
+                         :title="cell.date">
+                    </div>
+                  </template>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. 数据成就区：左边圆形 + 右边竖排胶囊卡片 -->
+        <div class="flex items-center gap-4">
+
+          <!-- 左：圆形 Days Since Joining，全 SVG 实现 -->
+          <!--
+            尺寸: 160×160, 圆心(80,80)
+            外虚线圆: r=72（留8px边距）
+            弧文字路径: 上弧 r=62（距圆弧内壁10px）, 下弧同
+            中心灰色圆: r=42
+          -->
+          <div class="relative shrink-0" style="width:160px;height:160px;">
+            <svg width="160" height="160" viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <!-- 上弧路径：r=62，文字基线距虚线圆内壁约10px -->
+                <path id="dsj-top" d="M 18,90 A 62,62 0 0,1 142,90"/>
+                <!-- 下弧路径：r=62，文字基线距虚线圆内壁约10px（方向相反） -->
+                <path id="dsj-bot" d="M 18,76 A 62,62 0 0,0 142,76"/>
+              </defs>
+
+              <!-- 外圈虚线圆 -->
+              <circle cx="80" cy="80" r="72"
+                      stroke="#D1D5DB" stroke-width="1.5"
+                      stroke-dasharray="3.5 3.5"
+                      fill="white"/>
+
+              <!-- 中心灰色实心圆 -->
+              <circle cx="80" cy="80" r="44" fill="#F3F4F6"/>
+
+              <!-- 上弧文字：Days Since Joining -->
+              <text font-size="9" fill="#9CA3AF" font-family="Inter,sans-serif" letter-spacing="0.8">
+                <textPath href="#dsj-top" startOffset="50%" text-anchor="middle">Days Since Joining</textPath>
+              </text>
+
+              <!-- 下弧文字：加入日期（动态） -->
+              <text font-size="9" fill="#9CA3AF" font-family="Inter,sans-serif" letter-spacing="0.5">
+                <textPath href="#dsj-bot" startOffset="50%" text-anchor="middle"
+                          x-text="data.profile?.join_date ?? ''"></textPath>
+              </text>
+            </svg>
+
+            <!-- 中心 DAY 数字（绝对定位，盖在灰色圆上） -->
+            <div class="absolute inset-0 flex items-center justify-center">
+              <div class="text-center leading-none">
+                <p class="text-[11px] font-semibold text-gray-400 tracking-widest uppercase mb-0.5">Day</p>
+                <p class="text-[30px] font-bold text-gray-900 leading-none tabular-nums"
+                   x-text="data.profile?.days_since_join ?? 0"></p>
+              </div>
+            </div>
+          </div>
+
+          <!-- 右：竖排两个胶囊卡片 -->
+          <div class="flex flex-col gap-2.5 flex-1">
+            <!-- Tasks Completed -->
+            <div class="border border-gray-200 rounded-[28px] px-5 py-3 flex flex-col justify-center">
+              <p class="text-xl font-bold text-gray-900 leading-tight" x-text="data.stats?.tasks_completed ?? 0"></p>
+              <p class="text-[10px] text-gray-400 mt-0.5">Tasks Completed</p>
+            </div>
+            <!-- Conversation Turns -->
+            <div class="border border-gray-200 rounded-[28px] px-5 py-3 flex flex-col justify-center">
+              <p class="text-xl font-bold text-gray-900 leading-tight" x-text="data.stats?.conversation_turns ?? 0"></p>
+              <p class="text-[10px] text-gray-400 mt-0.5">Conversation Turns</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ═══ RIGHT PANEL ═══ -->
+      <div class="flex-1 min-w-0">
+
+        <!-- Tab Bar -->
+        <div class="flex items-center gap-2 mb-6">
+          <template x-for="tab in tabs" :key="tab.id">
+            <button
+              @click="activeTab = tab.id"
+              class="px-4 py-1.5 rounded-full text-sm font-medium transition-all"
+              :class="activeTab === tab.id
+                ? 'bg-gray-900 text-white'
+                : 'border border-gray-200 text-gray-500 hover:border-gray-300'">
+              <span x-text="tab.label"></span>
+            </button>
+          </template>
+          <!-- Settings 图标按钮 -->
+          <button @click="activeTab = 'settings'"
+                  class="ml-1 w-9 h-9 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 hover:border-gray-300 transition-all"
+                  :class="activeTab === 'settings' ? 'bg-gray-900 border-gray-900 text-white' : ''">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+              <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>
+            </svg>
+          </button>
+          <span class="ml-auto text-[11px] text-gray-300 tabular-nums"
+                x-text="lastUpdated ? '↺ ' + lastUpdated : ''"></span>
+        </div>
+
+        <!-- ── Activity Tab ── -->
+        <div x-show="activeTab === 'activity'" x-cloak>
+          <template x-for="group in (data.activity ?? [])" :key="group.date">
+            <div class="mb-8">
+
+              <!-- 日期 header -->
+              <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2">
+                  <svg class="w-4 h-4 text-gray-300 shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                    <rect x="3" y="4" width="18" height="18" rx="2"/>
+                    <line x1="16" y1="2" x2="16" y2="6"/>
+                    <line x1="8" y1="2" x2="8" y2="6"/>
+                    <line x1="3" y1="10" x2="21" y2="10"/>
+                  </svg>
+                  <span class="text-sm font-semibold text-gray-700" x-text="group.label"></span>
+                  <span class="text-xs text-gray-400 tabular-nums" x-text="group.date"></span>
+                </div>
+                <span class="text-xs text-gray-400" x-show="group.cost" x-text="'Cost ' + group.cost"></span>
+              </div>
+
+              <!-- 空态 -->
+              <p x-show="!group.items?.length" class="text-sm text-gray-300 pl-5 py-3">暂无记录</p>
+
+              <!-- 时间轴：只有灰色虚线，无圆点 -->
+              <div x-show="group.items?.length" class="relative pl-6">
+                <!-- 虚线竖线 -->
+                <div class="timeline-line"></div>
+                <div class="space-y-5">
+                  <template x-for="item in (group.items ?? [])" :key="item.title">
+                    <div>
+                      <h3 class="text-sm font-semibold text-gray-900 mb-0.5" x-text="item.title"></h3>
+                      <p class="text-xs text-gray-400 leading-relaxed line-clamp-2" x-text="item.description"></p>
+                    </div>
+                  </template>
+                </div>
+              </div>
+
+            </div>
+          </template>
+        </div>
+
+        <!-- ── Skills Tab ── -->
+        <div x-show="activeTab === 'skills'" x-cloak>
+          <div class="divide-y divide-gray-100">
+            <template x-for="skill in (data.skills ?? [])" :key="skill.name">
+              <div class="flex items-start gap-3 py-4 first:pt-0 last:pb-0">
+                <!-- 闪电图标 -->
+                <div class="shrink-0 mt-0.5">
+                  <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                  </svg>
+                </div>
+                <div class="min-w-0">
+                  <h3 class="text-sm font-semibold text-gray-900 mb-0.5" x-text="skill.name"></h3>
+                  <p class="text-xs text-gray-400 leading-relaxed line-clamp-2" x-text="skill.description"></p>
+                </div>
+              </div>
+            </template>
+          </div>
+          <p x-show="!data.skills?.length" class="text-sm text-gray-400 text-center py-8">暂无 Skills</p>
+        </div>
+
+        <!-- ── Plan Tab ── -->
+        <div x-show="activeTab === 'plan'" x-cloak>
+          <div class="space-y-3">
+            <template x-for="job in (data.cron_jobs ?? [])" :key="job.name">
+              <div class="border border-gray-100 rounded-xl p-4">
+                <div class="flex items-center justify-between gap-3 mb-1.5">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <span class="w-1.5 h-1.5 rounded-full shrink-0"
+                          :class="job.enabled ? 'bg-brand' : 'bg-gray-300'"></span>
+                    <h3 class="text-sm font-semibold text-gray-800 truncate" x-text="job.name"></h3>
+                  </div>
+                  <span class="shrink-0 px-2 py-0.5 bg-brand-lighter text-brand-deeper text-xs font-medium rounded-full"
+                        x-text="job.schedule"></span>
+                </div>
+                <p class="text-xs text-gray-400 leading-relaxed pl-3.5" x-text="job.description"></p>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- ── Settings Tab ── -->
+        <div x-show="activeTab === 'settings'" x-cloak>
+          <div class="space-y-5">
+            <div>
+              <p class="text-[11px] font-medium text-gray-400 uppercase tracking-widest mb-2.5">当前模型</p>
+              <div class="border border-gray-100 rounded-xl p-4">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <p class="text-sm font-semibold text-gray-800" x-text="data.config?.model?.primary ?? 'Claude Sonnet 4.6'"></p>
+                    <p class="text-xs text-gray-400 mt-0.5"
+                       x-text="(data.config?.model?.provider ?? 'Anthropic') + ' · ' + (data.config?.model?.api_mode ?? 'API Key')"></p>
+                  </div>
+                  <span class="w-2 h-2 bg-brand rounded-full"></span>
+                </div>
+              </div>
+            </div>
+            <div>
+              <p class="text-[11px] font-medium text-gray-400 uppercase tracking-widest mb-2.5">已连接 Channels</p>
+              <div class="space-y-2">
+                <template x-for="ch in (data.config?.channels ?? [])" :key="ch.name">
+                  <div class="border border-gray-100 rounded-xl p-4 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                      <div class="w-8 h-8 bg-gray-50 rounded-lg flex items-center justify-center text-sm border border-gray-100">💬</div>
+                      <div>
+                        <p class="text-sm font-semibold text-gray-800" x-text="ch.name"></p>
+                        <p class="text-xs text-gray-400" x-text="ch.type"></p>
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                      <span class="w-1.5 h-1.5 bg-brand rounded-full"></span>
+                      <span class="text-xs text-gray-500" x-text="ch.status"></span>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function dashboard() {
+      return {
+        data: {},
+        loading: true,
+        connected: false,
+        activeTab: 'activity',
+        lastUpdated: '',
+        tabs: [
+          { id: 'activity', label: 'Activity' },
+          { id: 'skills',   label: 'Skills'   },
+          { id: 'plan',     label: 'Plan'     },
+        ],
+
+        heatColor(level) {
+          return {
+            0: 'bg-gray-100',
+            1: 'bg-brand-lighter',
+            2: 'bg-brand-light',
+            3: 'bg-brand',
+            4: 'bg-brand-deeper',
+          }[level] ?? 'bg-gray-100';
+        },
+
+        async init() {
+          try {
+            const res = await fetch('/api/all');
+            this.data = await res.json();
+            this.loading = false;
+            this.lastUpdated = new Date().toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit'});
+          } catch (e) {
+            this.loading = false;
+          }
+          this.startSSE();
+        },
+
+        startSSE() {
+          const es = new EventSource('/api/stream');
+          es.onopen = () => { this.connected = true; };
+          es.onmessage = (event) => {
+            try {
+              const d = JSON.parse(event.data);
+              if (!d.error) {
+                this.data = d;
+                this.lastUpdated = new Date().toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit'});
+              }
+            } catch(e) {}
+          };
+          es.onerror = () => {
+            this.connected = false;
+            es.close();
+            setTimeout(() => this.startSSE(), 10000);
+          };
+        }
+      }
+    }
+  </script>
+</body>
+</html>
