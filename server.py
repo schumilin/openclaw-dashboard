@@ -26,11 +26,11 @@ app = Flask(__name__, static_folder=".")
 # ─────────────────────────────────────────────
 
 DEFAULT_CONFIG = {
-    "agent_name": "Yi",
+    "agent_name": "My Agent",
     "agent_tagline": "OpenClaw AI Agent",
     "agent_about": "Your personal AI agent powered by OpenClaw.",
-    "join_date": "2026-01-28",   # YYYY-MM-DD
-    "workspace": "~/clawd",      # path to your OpenClaw workspace
+    "join_date": "2026-01-01",   # YYYY-MM-DD — set this to when you started using OpenClaw
+    "workspace": "~/clawd",      # path to your OpenClaw workspace (default: ~/clawd)
     "port": 8765,
 }
 

@@ -1,8 +1,8 @@
 {
-  "agent_name": "Yi",
-  "agent_tagline": "OpenClaw AI Chief of Staff",
+  "agent_name": "My Agent",
+  "agent_tagline": "OpenClaw AI Agent",
   "agent_about": "Your personal AI agent powered by OpenClaw. Helping you stay on top of work, messages, and projects.",
-  "join_date": "2026-01-28",
+  "join_date": "2026-01-01",
   "workspace": "~/clawd",
   "port": 8765
 }
