@@ -36,7 +36,17 @@ It reads directly from your OpenClaw workspace — no database, no cloud, no set
 
 ---
 
-## Quick Start
+## Install via OpenClaw (Easiest)
+
+If you're already using OpenClaw, just tell your agent:
+
+> "Install this for me: https://github.com/schumilin/openclaw-dashboard"
+
+Your agent will read the `SKILL.md`, clone the repo, configure it, and start the server automatically. Done.
+
+---
+
+## Manual Quick Start
 
 ### 1. Clone the repo
 

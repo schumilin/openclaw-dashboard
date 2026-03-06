@@ -342,13 +342,11 @@ def index():
 
 @app.route("/avatar.jpg")
 def avatar():
-    avatar_path = Path(__file__).parent / "avatar.jpg"
-    if avatar_path.exists():
+    # Use custom avatar.jpg if provided, otherwise fall back to default_avatar.jpg
+    base = Path(__file__).parent
+    if (base / "avatar.jpg").exists():
         return send_from_directory(".", "avatar.jpg")
-    # fallback: serve a 1x1 transparent gif
-    from flask import Response as Resp
-    return Resp(b'GIF89a\x01\x00\x01\x00\x00\xff\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x00;',
-                mimetype='image/gif')
+    return send_from_directory(".", "default_avatar.jpg")
 
 
 @app.route("/api/all")
